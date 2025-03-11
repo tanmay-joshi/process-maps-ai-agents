@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactFlow, {
   MiniMap,
@@ -28,9 +28,43 @@ export default function BoardEditor({ params }: { params: { id: string } }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [aiPrompt, setAiPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [boardName, setBoardName] = useState('')
+
+  // Load board data
+  useEffect(() => {
+    const loadBoard = async () => {
+      try {
+        const response = await fetch(`/api/boards/${params.id}`)
+        if (!response.ok) {
+          throw new Error('Failed to load board')
+        }
+        const data = await response.json()
+        setBoardName(data.name)
+        
+        // Add onLabelChange to each node's data
+        const nodesWithCallback = data.nodes.map((node: Node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            onLabelChange: handleLabelChange,
+          },
+        }))
+        
+        setNodes(nodesWithCallback)
+        setEdges(data.edges)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred while loading the board')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadBoard()
+  }, [params.id])
 
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
@@ -86,7 +120,7 @@ export default function BoardEditor({ params }: { params: { id: string } }) {
 
       // Show success state briefly before navigating
       setTimeout(() => {
-        router.push('/boards')
+        router.push('/')
       }, 500)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while saving')
@@ -96,7 +130,7 @@ export default function BoardEditor({ params }: { params: { id: string } }) {
   }
 
   const handleExit = () => {
-    router.push('/boards')
+    router.push('/')
   }
 
   const handleAiGenerate = async (e: React.FormEvent) => {
@@ -144,35 +178,46 @@ export default function BoardEditor({ params }: { params: { id: string } }) {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-screen flex flex-col">
       <div className="p-4 border-b">
         <div className="flex justify-between items-center">
-          <div className="flex gap-4">
-            <button
-              onClick={() => addShape('rectangle')}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Add Rectangle
-            </button>
-            <button
-              onClick={() => addShape('diamond')}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Add Diamond
-            </button>
-            <button
-              onClick={() => addShape('circle')}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Add Circle
-            </button>
-            <button
-              onClick={() => addShape('sticky')}
-              className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-            >
-              Add Sticky Note
-            </button>
+          <div className="flex items-center gap-8">
+            <h1 className="text-xl font-semibold text-gray-900">{boardName}</h1>
+            <div className="flex gap-4">
+              <button
+                onClick={() => addShape('rectangle')}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Add Rectangle
+              </button>
+              <button
+                onClick={() => addShape('diamond')}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Add Diamond
+              </button>
+              <button
+                onClick={() => addShape('circle')}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Add Circle
+              </button>
+              <button
+                onClick={() => addShape('sticky')}
+                className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+              >
+                Add Sticky Note
+              </button>
+            </div>
           </div>
           <div className="flex gap-4 items-center">
             {error && <span className="text-red-500">{error}</span>}
