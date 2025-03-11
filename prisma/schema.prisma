@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  boards        Board[]
+}
+
+model Board {
+  id          String   @id @default(cuid())
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shapes      Shape[]
+  connections Connection[]
+}
+
+model Shape {
+  id            String   @id @default(cuid())
+  type          String   // rectangle, diamond, circle
+  x             Float
+  y             Float
+  width         Float
+  height        Float
+  text          String?
+  boardId       String
+  board         Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  fromConnections Connection[] @relation("FromShape")
+  toConnections   Connection[] @relation("ToShape")
+}
+
+model Connection {
+  id            String   @id @default(cuid())
+  fromShapeId   String
+  toShapeId     String
+  boardId       String
+  // Store points as a JSON string since SQLite doesn't support arrays
+  pointsJson    String
+  fromShape     Shape    @relation("FromShape", fields: [fromShapeId], references: [id], onDelete: Cascade)
+  toShape       Shape    @relation("ToShape", fields: [toShapeId], references: [id], onDelete: Cascade)
+  board         Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+}
